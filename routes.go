@@ -5,12 +5,10 @@ import (
 )
 
 // TODO: Write a custom router to dispatch based on request method
-func (app *App) routes() http.Handler {
+func (app *App) NewMux() *http.ServeMux {
 	mux := http.NewServeMux()
-
 	mux.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("./ui/static/"))))
 	mux.HandleFunc("/", app.WelcomePage)
-
 	return mux
 }
 

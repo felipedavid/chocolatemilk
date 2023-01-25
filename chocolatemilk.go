@@ -17,7 +17,8 @@ type App struct {
 	Version       string
 	ErrLog        *log.Logger
 	InfoLogger    *log.Logger
-	Addr          string
+	addr          string
+	mux           *http.ServeMux
 	templateCache map[string]*template.Template
 }
 
@@ -59,27 +60,34 @@ func New() (*App, error) {
 	err = loadEnvironmentVariables(buf)
 
 	app.Name = os.Getenv("APP_NAME")
-	app.DebugMode = strings.ToLower(os.Getenv("DEBUG")) == "true"
 	app.Version = os.Getenv("VERSION")
-	app.Addr = os.Getenv("ADDR")
+	app.DebugMode = strings.ToLower(os.Getenv("DEBUG")) == "true"
+	app.mux = app.NewMux()
+	app.addr = os.Getenv("ADDR")
 
 	app.templateCache, err = newTemplateCache()
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: setup session stuff
+
 	return app, err
 }
 
 func (app *App) Listen() error {
 	s := http.Server{
-		Addr:         app.Addr,
+		Addr:         app.addr,
 		ErrorLog:     app.ErrLog,
-		Handler:      app.routes(),
+		Handler:      app.mux,
 		IdleTimeout:  30 * time.Second,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 600 * time.Second,
 	}
-	app.InfoLogger.Printf("Listening at %s\n", app.Addr)
+	app.InfoLogger.Printf("Listening at %s\n", app.mux)
 	return s.ListenAndServe()
+}
+
+func (app *App) AddRoute(pattern string, h http.HandlerFunc) {
+	app.mux.HandleFunc(pattern, h)
 }
