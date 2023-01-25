@@ -2,22 +2,23 @@ package chocolatemilk
 
 import (
 	"errors"
-	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type App struct {
-	Name           string
-	DebugMode      bool
-	Version        string
-	ErrLog         *log.Logger
-	InfoLogger     *log.Logger
-	Addr           string
-	TemplateEngine string
+	Name          string
+	DebugMode     bool
+	Version       string
+	ErrLog        *log.Logger
+	InfoLogger    *log.Logger
+	Addr          string
+	templateCache map[string]*template.Template
 }
 
 func New() (*App, error) {
@@ -28,11 +29,18 @@ func New() (*App, error) {
 	app.InfoLogger = log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime)
 
 	app.InfoLogger.Println("Setting up directory structure")
-	var dirStructure = [5]string{
+	var dirStructure = [12]string{
 		"cmd",
 		"cmd/web",
 		"migrations",
 		"ui",
+		"ui/html",
+		"ui/html/pages",
+		"ui/html/partials",
+		"ui/static",
+		"ui/static/img",
+		"ui/static/js",
+		"ui/static/css",
 		"logs",
 	}
 
@@ -54,21 +62,24 @@ func New() (*App, error) {
 	app.DebugMode = strings.ToLower(os.Getenv("DEBUG")) == "true"
 	app.Version = os.Getenv("VERSION")
 	app.Addr = os.Getenv("ADDR")
-	app.TemplateEngine = os.Getenv("TEMPLATE_ENGINE")
+
+	app.templateCache, err = newTemplateCache()
+	if err != nil {
+		return nil, err
+	}
 
 	return app, err
 }
 
-func (a *App) Listen() error {
+func (app *App) Listen() error {
 	s := http.Server{
-		Addr:     a.Addr,
-		ErrorLog: a.ErrLog,
-		Handler:  http.HandlerFunc(a.WelcomePage),
+		Addr:         app.Addr,
+		ErrorLog:     app.ErrLog,
+		Handler:      app.routes(),
+		IdleTimeout:  30 * time.Second,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 600 * time.Second,
 	}
-	a.InfoLogger.Printf("Listening at %s", a.Addr)
+	app.InfoLogger.Printf("Listening at %s\n", app.Addr)
 	return s.ListenAndServe()
-}
-
-func (a *App) WelcomePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to Chocolate Milk! Your sweetest Go web framework :)")
 }
