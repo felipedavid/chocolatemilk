@@ -1,17 +1,27 @@
 package chocolatemilk
 
 import (
+	"fmt"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
 )
 
-// TODO: Write a custom router to dispatch based on request method
-func (app *App) NewMux() *http.ServeMux {
-	mux := http.NewServeMux()
-	mux.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("./ui/static/"))))
-	mux.HandleFunc("/", app.WelcomePage)
-	return mux
+func DefaultPage(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Welcome to Chocolate Milk! Your sweetest Go web framework :3")
 }
 
-func (app *App) WelcomePage(w http.ResponseWriter, r *http.Request) {
-	app.render(w, http.StatusOK, "welcomepage.tmpl", nil)
+func (c *ChocolateMilk) routes() http.Handler {
+	mux := chi.NewRouter()
+
+	mux.Use(middleware.RequestID)
+	mux.Use(middleware.RealIP)
+	if c.Debug {
+		mux.Use(middleware.Logger)
+	}
+	mux.Use(middleware.Recoverer)
+
+	mux.Get("/", DefaultPage)
+
+	return mux
 }
